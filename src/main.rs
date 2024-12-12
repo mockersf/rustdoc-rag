@@ -136,6 +136,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut visited = HashSet::<(usize, rustdoc_types::Id)>::new();
         start_krate(&loaded_crates, &mut visited);
 
+        ollama.download_model().await?;
+
         let dir = std::fs::read_dir("./out/structs")?;
         for (i, entry) in dir.enumerate() {
             if i % 100 == 0 {
@@ -189,13 +191,30 @@ struct SimpleOllama {
 }
 
 impl SimpleOllama {
-    async fn embeddings(&self, document: &str) -> Result<Vec<f32>, Box<dyn Error>> {
-        let request = GenerateEmbeddingsRequest::new(self.embedding_model.clone(), document.into());
-        let Ok(mut res) = self.ollama.generate_embeddings(request).await else {
+    async fn download_model(&self) -> Result<(), Box<dyn Error>> {
+        let Ok(models) = self.ollama.list_local_models().await else {
             println!("Error generating embeddings");
             println!("Is Ollama running?");
             panic!();
         };
+
+        for model in models {
+            if model.name == self.embedding_model {
+                return Ok(());
+            }
+        }
+
+        println!("downloading model {}", self.embedding_model);
+        self.ollama
+            .pull_model(self.embedding_model.clone(), false)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn embeddings(&self, document: &str) -> Result<Vec<f32>, Box<dyn Error>> {
+        let request = GenerateEmbeddingsRequest::new(self.embedding_model.clone(), document.into());
+        let mut res = self.ollama.generate_embeddings(request).await?;
         Ok(res.embeddings.remove(0))
     }
 }
