@@ -85,9 +85,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .into(),
     );
     let exist = chroma.get_collection(&collection_name).await.is_ok();
-    let collection = chroma
+    let Ok(collection) = chroma
         .get_or_create_collection(&collection_name, Some(collection_meta))
-        .await?;
+        .await
+    else {
+        println!("Error creating collection in Chroma");
+        println!("Is the database running?");
+        println!("> docker run -p 8000:8000 chromadb/chroma");
+        panic!();
+    };
 
     if !exist || args.recompute {
         std::fs::create_dir_all("out")?;
@@ -100,7 +106,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("You can run the following command in the project you want to document:");
             println!();
             println!(
-                "RUSTDOCFLAGS=\"-Z unstable-options --output-format json\" cargo +nightly doc"
+                "> RUSTDOCFLAGS=\"-Z unstable-options --output-format json\" cargo +nightly doc"
             );
             println!();
             println!(
@@ -181,7 +187,11 @@ struct SimpleOllama {
 impl SimpleOllama {
     async fn embeddings(&self, document: &str) -> Result<Vec<f32>, Box<dyn Error>> {
         let request = GenerateEmbeddingsRequest::new(self.embedding_model.clone(), document.into());
-        let mut res = self.ollama.generate_embeddings(request).await.unwrap();
+        let Ok(mut res) = self.ollama.generate_embeddings(request).await else {
+            println!("Error generating embeddings");
+            println!("Is Ollama running?");
+            panic!();
+        };
         Ok(res.embeddings.remove(0))
     }
 }
