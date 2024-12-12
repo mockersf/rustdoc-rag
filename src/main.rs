@@ -34,6 +34,10 @@ struct Args {
     /// Force recompute of everything from scratch
     #[arg(short, long)]
     recompute: bool,
+
+    /// Number of results to return
+    #[arg(short, long, default_value_t = 10)]
+    nb_results: usize,
 }
 
 #[derive(Debug, Clone, Hash, ValueEnum)]
@@ -157,7 +161,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for line in stdin.lock().lines() {
         let query = QueryOptions {
             query_embeddings: Some(vec![ollama.embeddings(&line?).await?]),
-            n_results: Some(10),
+            n_results: Some(args.nb_results as usize),
             include: Some(vec!["distances"]),
             ..Default::default()
         };
